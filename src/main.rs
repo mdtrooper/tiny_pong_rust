@@ -65,6 +65,7 @@ fn main() {
     
     while let Some(e) = ventana.next() {
         if let Some(Button::Keyboard(key)) = e.press_args() {
+            println!("Pressed keyboard key '{:?}'", key);
             match key {
                 Key::Q => {
                     raqueta1.arriba();
