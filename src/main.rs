@@ -1,95 +1,55 @@
-extern crate piston_window;
-use piston_window::*;
+use bevy::{
+    prelude::*,
+    render::pass::ClearColor};
 
-const DIM_VENTANA:[u32;2] = [800, 600];
-const DIM_RAQUETA:[f64;2] = [20.0, 100.0];
+const VENTANA_TAM: [f32;2] = [800.0, 600.0];
 
-const MAX_ACELERACION:u32 = 50;
+const PELOTA_INI_POS: [f32;3] = [0.0, 0.0, 0.0];
+const PELOTA_TAM: f32 = 20.0;
 
-#[derive(Debug)]
-enum Movimiento {
-    Ninguno,
-    Arriba,
-    Abajo,
+struct Pelota {
+    velocity: Vec3,
 }
 
-#[derive(Debug)]
-struct Raqueta {
-    pub color: [f32; 4],
-    pub pos: [f64; 4],
-    pub acel: u32,
-    pub prev_mov: Movimiento
-}
-
-impl Raqueta {
-    fn new(x: f64, y: f64) -> Self {
-        Raqueta {
-            color: [1.0, 1.0, 1.0, 1.0],
-            pos: [x, y, x + DIM_RAQUETA[0], y + DIM_RAQUETA[1]],
-            acel: 1,
-            prev_mov: Movimiento::Ninguno
-        }
-    }
+fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+    commands
+        .spawn(Camera2dBundle::default())
+        .spawn(CameraUiBundle::default());
     
-    fn arriba(&mut self) {
-        self.acel = match self.prev_mov {
-            Movimiento::Arriba => self.acel + 1,
-            _ => 1
-        };
-        self.acel = if self.acel > MAX_ACELERACION { MAX_ACELERACION} else { self.acel };
-        self.prev_mov = Movimiento::Arriba;
-        self.pos[1] -= self.acel as f64;
-    } 
-
-    fn abajo(&mut self) {
-        self.acel = match self.prev_mov {
-            Movimiento::Abajo => self.acel + 1,
-            _ => 1
-        };
-        self.acel = if self.acel > MAX_ACELERACION { MAX_ACELERACION} else { self.acel};
-        self.prev_mov = Movimiento::Abajo;
-        self.pos[1] += self.acel as f64;
-    } 
+    commands
+        .spawn(SpriteBundle {
+            material: materials.add(Color::WHITE.into()),
+            transform: Transform::from_translation(Vec3::new(PELOTA_INI_POS[0], PELOTA_INI_POS[1], PELOTA_INI_POS[2])),
+            sprite: Sprite {
+                size: Vec2::new(PELOTA_TAM, PELOTA_TAM),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with(Pelota {
+            velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
+        });
 }
 
+fn ball_movement_system(time: Res<Time>, mut query: Query<(&Pelota, &mut Transform)>) {
+    let delta_seconds = f32::min(0.2, time.delta_seconds());
 
+    for (ball, mut transform) in query.iter_mut() {
+        transform.translation += ball.velocity * delta_seconds;
+    }
+}
 
 fn main() {
-    let mut ventana: PistonWindow = WindowSettings::new("Tiny Pong", (DIM_VENTANA[0], DIM_VENTANA[1]))
-        .exit_on_esc(true)
-        .build()
-        .unwrap_or_else(|e| { panic!("Error al lanzar el juego: {}", e) });
-    
-    let mut raqueta1 = Raqueta::new(0.0, 0.0);
-    let mut raqueta2 = Raqueta::new(DIM_VENTANA[0] as f64 - 20.0, 0.0);
-    
-    while let Some(e) = ventana.next() {
-        if let Some(Button::Keyboard(key)) = e.press_args() {
-            println!("Pressed keyboard key '{:?}'", key);
-            match key {
-                Key::Q => {
-                    raqueta1.arriba();
-                },
-                Key::A => {
-                    raqueta1.abajo();
-                },
-                Key::P => {
-                    raqueta2.arriba();
-                },
-                Key::L => {
-                    raqueta2.abajo();
-                },
-                _ => {println!("Pressed keyboard key '{:?}'", key);}
-            }
-        };
-        
-        println!("{:?}", raqueta1);
-        
-        ventana.draw_2d(&e, |_c, g, _d| {
-            clear([0.0, 0.0, 0.0, 1.0], g);
-            
-            rectangle(raqueta1.color, raqueta1.pos, _c.transform, g);
-            rectangle(raqueta2.color, raqueta2.pos, _c.transform, g);
-        });
-    }
+    App::build()
+        .add_resource(ClearColor(Color::BLACK.into()))
+        .add_resource(WindowDescriptor {
+            title: "Pong".to_string(),
+            width: VENTANA_TAM[0],
+            height: VENTANA_TAM[1],
+            ..Default::default()
+        })
+        .add_plugins(DefaultPlugins)
+        .add_startup_system(setup.system())
+        .add_system(ball_movement_system.system())
+        .run();
 }
